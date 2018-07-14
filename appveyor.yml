@@ -15,11 +15,11 @@ before_build:
   - cmd: dotnet restore --verbosity m
 build_script:
   # output will be in ./src/bin/debug/netcoreapp1.1/publish
-  - cmd: dotnet publish ./src/Pollinate.Speak/Pollinate.Speak.csproj
+  - cmd: dotnet publish ./src/Pollinate.Speak/Pollinate.Speak.csproj -c Release
 after_build:
   # For once the build has completed
 artifacts:
- - path: '/src/Pollinate.Speak/bin/Release/dotnetcore2.1/Pollinate.Speak.dll'
+ - path: './src/Pollinate.Speak/bin/Release/netstandard2.0/publish/Pollinate.Speak.dll'
    name: Pollinate.Speak
    type: Auto
 clone_depth: 1
