@@ -18,6 +18,10 @@ build_script:
   - cmd: dotnet publish ./src/Pollinate.Speak/Pollinate.Speak.csproj
 after_build:
   # For once the build has completed
+artifacts:
+ - path: '/src/Pollinate.Speak/bin/Release/dotnetcore2.1/Pollinate.Speak.dll'
+   name: Pollinate.Speak
+   type: Auto
 clone_depth: 1
 on_finish :
   # any cleanup in here

@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Akka.Actor;
-using System.Net.Http;
-using System.Net.Http.Headers;
 
 namespace Pollinate.Speak
 {
