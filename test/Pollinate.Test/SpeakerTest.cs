@@ -116,12 +116,12 @@ namespace Pollinate.Test
         {
             _expectedFailures=expectedFailures;
         }
-        public HttpResponseMessage Send(object message)
+        public bool Send(object message)
         {
             if(_failures < _expectedFailures) 
             {
                 _failures++;
-                return new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError);
+                return false;
             }
 /*            var httpClient = new HttpClient();
             httpClient.BaseAddress = new Uri("http://localhost:60095");
@@ -132,7 +132,7 @@ namespace Pollinate.Test
                     .PostAsync("api/someendpoint", new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(message), System.Text.Encoding.UTF8, "application/json"))
                     .Result;
 */
-            return new HttpResponseMessage(System.Net.HttpStatusCode.OK);
+            return true;
 
         }
 

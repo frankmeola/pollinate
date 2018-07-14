@@ -47,7 +47,7 @@ namespace Pollinate.Speak
 
     public interface ISend
     {
-        HttpResponseMessage Send(object message);
+        bool Send(object message);
     }
 
     public class StoreAndForwardActor : UntypedActor
@@ -92,9 +92,9 @@ namespace Pollinate.Speak
 
             if (outboundMessage != null)
             {
-                var response = _sender.Send(outboundMessage);
+                var sentSuccessfully = _sender.Send(outboundMessage);
 
-                if (response.IsSuccessStatusCode)
+                if (sentSuccessfully)
                 {
                     Context.System.EventStream.Publish(new DeliveryEvent{ Sent=true });
                 }
