@@ -15,63 +15,75 @@ namespace Pollinate.Test
 
         public When_speaking()
         {
-             _actorSystem = ActorSystem.Create("ApplicationEvents");
+            _actorSystem = ActorSystem.Create("ApplicationEvents");
 
-              Props monitorActorProps = Props.Create(() => new MonitorActor());
+            Props monitorActorProps = Props.Create(() => new MonitorActor());
 
-              _monitorActor = _actorSystem.ActorOf(monitorActorProps, "monitor");
+            _monitorActor = _actorSystem.ActorOf(monitorActorProps, "monitor");
 
-                _actorSystem.EventStream.Subscribe(_monitorActor, typeof(StorageEvent));
-                _actorSystem.EventStream.Subscribe(_monitorActor, typeof(DeliveryEvent));
+            _actorSystem.EventStream.Subscribe(_monitorActor, typeof(StorageEvent));
+            _actorSystem.EventStream.Subscribe(_monitorActor, typeof(DeliveryEvent));
         }
 
         [Fact]
         public void Given_message_then_store_for_delivery()
         {
-              Props deliveryActorProps = Props.Create(() => new DeliveryActor(new SampleSender()));
-
+            Props deliveryActorProps = Props.Create(() => new DeliveryActor(new SampleSender(0)));
             IActorRef deliveryActor = _actorSystem.ActorOf(deliveryActorProps, "delivery");
 
-              Props storeAndForwardActorProps = Props.Create(() => new StoreAndForwardActor(new StubStore(true), deliveryActor));
+            Props storeAndForwardActorProps = Props.Create(() => new StoreAndForwardActor(new StubStore(true), deliveryActor));
+            IActorRef storeAndForwardActor = _actorSystem.ActorOf(storeAndForwardActorProps, "storeandforward");
 
-                IActorRef storeAndForwardActor = _actorSystem.ActorOf(storeAndForwardActorProps, "storeandforward");
-
-                storeAndForwardActor.Tell(new SampleMessage());
+            storeAndForwardActor.Tell(new SampleMessage());
         }
 
         [Fact]
         public void Given_message_unable_to_store_then_raise_error()
         {
-              Props deliveryActorProps = Props.Create(() => new DeliveryActor(new SampleSender()));
-
+            Props deliveryActorProps = Props.Create(() => new DeliveryActor(new SampleSender(0)));
             IActorRef deliveryActor = _actorSystem.ActorOf(deliveryActorProps, "delivery");
-              Props storeAndForwardActorProps = Props.Create(() => new StoreAndForwardActor(new StubStore(false), deliveryActor));
 
-                IActorRef storeAndForwardActor = _actorSystem.ActorOf(storeAndForwardActorProps, "storeandforward");
+            Props storeAndForwardActorProps = Props.Create(() => new StoreAndForwardActor(new StubStore(false), deliveryActor));
 
-                storeAndForwardActor.Tell(new SampleMessage());
+            IActorRef storeAndForwardActor = _actorSystem.ActorOf(storeAndForwardActorProps, "storeandforward");
 
-                Assert.Equal(1, _monitorActor.Ask<HowManyStorageFailures>(new HowManyStorageFailures()).Result.Count);
+            storeAndForwardActor.Tell(new SampleMessage());
+
+            Assert.Equal(1, _monitorActor.Ask<HowManyStorageFailures>(new HowManyStorageFailures()).Result.Count);
         }
 
         [Fact]
         public void Given_stored_message_Then_should_send()
         {
-              Props deliveryActorProps = Props.Create(() => new DeliveryActor(new SampleSender()));
-
+            Props deliveryActorProps = Props.Create(() => new DeliveryActor(new SampleSender(0)));
             IActorRef deliveryActor = _actorSystem.ActorOf(deliveryActorProps, "delivery");
 
-              Props storeAndForwardActorProps = Props.Create(() => new StoreAndForwardActor(new StubStore(true), deliveryActor));
+            Props storeAndForwardActorProps = Props.Create(() => new StoreAndForwardActor(new StubStore(true), deliveryActor));
+            IActorRef storeAndForwardActor = _actorSystem.ActorOf(storeAndForwardActorProps, "storeandforward");
 
-                IActorRef storeAndForwardActor = _actorSystem.ActorOf(storeAndForwardActorProps, "storeandforward");
+            storeAndForwardActor.Tell(new SampleMessage());
 
-                storeAndForwardActor.Tell(new SampleMessage());
+            // don't like this but...
+            System.Threading.Thread.Sleep(1000);
+            Assert.Equal(1, _monitorActor.Ask<HowManyDeliveries>(new HowManyDeliveries()).Result.Sent);
 
-                // don't like this but...
-                System.Threading.Thread.Sleep(1000);
+        }
 
-                Assert.Equal(1, _monitorActor.Ask<HowManyDeliveries>(new HowManyDeliveries()).Result.Sent);
+        [Fact]
+        public void Given_failed_send_then_should_retry()
+        {
+            Props deliveryActorProps = Props.Create(() => new DeliveryActor(new SampleSender(2)));
+            IActorRef deliveryActor = _actorSystem.ActorOf(deliveryActorProps, "delivery");
 
+            Props storeAndForwardActorProps = Props.Create(() => new StoreAndForwardActor(new StubStore(true), deliveryActor));
+            IActorRef storeAndForwardActor = _actorSystem.ActorOf(storeAndForwardActorProps, "storeandforward");
+
+            storeAndForwardActor.Tell(new SampleMessage());
+
+            // don't like this but...
+            System.Threading.Thread.Sleep(1000);
+
+            Assert.Equal(1, _monitorActor.Ask<HowManyDeliveries>(new HowManyDeliveries()).Result.Sent);
         }
   }
 
@@ -97,8 +109,20 @@ namespace Pollinate.Test
 
     public class SampleSender : ISend
     {
+        int _failures;
+        int _expectedFailures;
+
+        public SampleSender(int expectedFailures)
+        {
+            _expectedFailures=expectedFailures;
+        }
         public HttpResponseMessage Send(object message)
         {
+            if(_failures < _expectedFailures) 
+            {
+                _failures++;
+                return new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError);
+            }
 /*            var httpClient = new HttpClient();
             httpClient.BaseAddress = new Uri("http://localhost:60095");
             httpClient.DefaultRequestHeaders.Accept.Clear();

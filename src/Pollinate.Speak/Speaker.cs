@@ -7,6 +7,19 @@ using System.Net.Http.Headers;
 
 namespace Pollinate.Speak
 {
+    public class RetryEnvelope
+    {
+        public object Message{get;set;}
+
+        public int RemainingRetries{get;set;}
+
+        public RetryEnvelope(object message, int remainingRetries)
+        {
+            Message = message;
+            RemainingRetries = remainingRetries;
+        }
+    }
+
     public class StorageEvent
     {
         public bool WriteEvent{get;set;}
@@ -73,8 +86,9 @@ namespace Pollinate.Speak
 
         protected override void OnReceive(object message)
         {
+            var retriedMessage = message as RetryEnvelope;
 
-            var outboundMessage = message;
+            var outboundMessage = retriedMessage == null ? message : retriedMessage.Message;
 
             if (outboundMessage != null)
             {
@@ -87,6 +101,15 @@ namespace Pollinate.Speak
                 else
                 {
                     Context.System.EventStream.Publish(new DeliveryEvent{ Sent=false });
+                    if(retriedMessage == null)
+                    {
+                        Console.WriteLine("start retry");
+                        Self.Tell(new RetryEnvelope(outboundMessage, 5));
+                    }
+                    else
+                    {
+                        Self.Tell(new RetryEnvelope(retriedMessage.Message, retriedMessage.RemainingRetries - 1));
+                    }
                 }
             }
         }
@@ -130,6 +153,5 @@ namespace Pollinate.Speak
                Sender.Tell(new HowManyDeliveries{ Sent=_deliveryEvents.Where(e => e.Sent).Count()}); 
             }
         }
-
     }
 }
